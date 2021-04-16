@@ -1,17 +1,28 @@
 package com.example.rxdemo1;
 
 import androidx.appcompat.app.AppCompatActivity;
+import io.reactivex.BackpressureStrategy;
+import io.reactivex.Flowable;
+import io.reactivex.FlowableEmitter;
+import io.reactivex.FlowableOnSubscribe;
+import io.reactivex.FlowableSubscriber;
 import io.reactivex.Observable;
 import io.reactivex.Observer;
 import io.reactivex.Scheduler;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Consumer;
 import io.reactivex.schedulers.Schedulers;
 
+import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import org.reactivestreams.Subscription;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -23,6 +34,7 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView textView;
 
+    @SuppressLint("CheckResult")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -41,31 +53,91 @@ public class MainActivity extends AppCompatActivity {
             //刚运行时，第一个就是调用这个函数
             @Override
             public void onSubscribe(@NonNull Disposable d) {
-                Log.e(TAG, "onSubscribe: ");
+                Log.e(TAG, "Observable onSubscribe: ");
             }
 
             //第二个就是调用这个函数
             @Override
             public void onNext(@NonNull String s) {
-                Log.e(TAG, "onNext: s:" + s);
+                Log.e(TAG, "Observable onNext: s:" + s);
                 textView.setText(s);
+                Toast.makeText(getApplicationContext(),s,Toast.LENGTH_SHORT);
 
             }
 
             //有出错时，就是调用这个函数
             @Override
             public void onError(@NonNull Throwable e) {
-                Log.e(TAG, "onError: ");
+                Log.e(TAG, "Observable onError: ");
             }
 
             //第最后就是调用这个函数
             @Override
             public void onComplete() {
-                Log.e(TAG, "onComplete: ");
+                Log.e(TAG, "Observable onComplete: ");
             }
         };
 
         //最后一定要用上下面这一句，才会调用上面myObserver，就是Observable (可观察者，即被观察者)被 Observer (观察者) 订阅了
         myObservable.subscribe(myObserver);
+
+        textView.setOnClickListener(v -> {
+            Log.e(TAG, "ok");
+            v.setTag(0);
+        }
+        );
+
+
+        Observable.just("Observable.just test")
+                .subscribe(
+                        s -> Log.e(TAG, s)
+                );
+
+
+        //创建观察者
+        FlowableSubscriber<String> subscriber = new FlowableSubscriber<String>() {
+            @Override
+            public void onSubscribe(Subscription s) {
+                //订阅时候的操作
+                s.request(Long.MAX_VALUE);//请求多少事件，这里表示不限制
+            }
+            @Override
+            public void onNext(String s) {
+                //onNext事件处理
+                Log.e("FlowableSubscriber onNext", s);
+            }
+            @Override
+            public void onError(Throwable t) {
+                //onError事件处理
+            }
+            @Override
+            public void onComplete() {
+                //onComplete事件处理
+            }
+        };
+
+
+        //被观察者
+        Flowable<String> flowable = Flowable.create(new FlowableOnSubscribe<String>() {
+            @Override
+            public void subscribe(FlowableEmitter<String> e) throws Exception {
+                //订阅观察者时的操作
+                e.onNext("Flowable test1");
+                e.onNext("Flowable test2");
+                e.onComplete();
+            }
+        }, BackpressureStrategy.BUFFER);
+
+        flowable.subscribe(subscriber);
+
+
+
+        flowable.subscribe(new Consumer<String>() {
+            @Override
+            public void accept(String s) {
+                //相当于onNext事件处理
+                Log.e("Consumer accept", s);
+            }
+        });
     }
 }
